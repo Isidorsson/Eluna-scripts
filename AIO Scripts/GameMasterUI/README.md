@@ -1,7 +1,6 @@
-# GameMasterUI for TrinityCore 3.3.5
+# GameMasterUI for TrinityCore & AzerothCore 3.3.5
 
-A comprehensive in-game Game Master management interface for TrinityCore servers using the AIO (AddOn In-game Organizer)
-framework.
+A comprehensive in-game Game Master management interface for TrinityCore and AzerothCore servers using the AIO (AddOn In-game Organizer) framework. **Automatic core detection** - works out of the box with both emulators.
 
 ## Features
 
@@ -14,6 +13,27 @@ framework.
 - **Context Menus**: Right-click context menus for quick actions
 - **Bug Reporting**: Built-in issue reporting system for GitHub integration
 
+## Core Support (TrinityCore & AzerothCore)
+
+The addon **automatically detects** your server core using Eluna's `GetCoreName()` function and configures itself accordingly.
+
+### Auto-Detection
+
+| Core | Default Database Names |
+|------|----------------------|
+| **TrinityCore** | `world`, `characters`, `auth` |
+| **AzerothCore** | `acore_world`, `acore_characters`, `acore_auth` |
+
+### Key Differences Handled Automatically
+
+| Feature | TrinityCore | AzerothCore |
+|---------|-------------|-------------|
+| NPC Models | `modelid1-4` fields in `creature_template` | Uses `creature_template_model` join table |
+| Database Names | Standard naming | `acore_` prefix |
+| Query Structure | Direct field access | JOIN queries where needed |
+
+**No configuration required** - just install and use. Override database names only if you use custom naming.
+
 ## Prerequisites
 
 - TrinityCore or AzerothCore 3.3.5
@@ -22,6 +42,22 @@ framework.
 - MySQL/MariaDB database
 
 ## Installation
+
+> **Quick Database Setup**
+>
+> | Setup | What to do |
+> |-------|-----------|
+> | **Auto-detect (default)** | Nothing - works out of the box |
+> | **Custom names** | Edit `Server/Core/GameMasterUI_Config.lua` line ~114 |
+>
+> ```lua
+> -- Change this line in GameMasterUI_Config.lua:
+> names = {
+>     world = "YOUR_WORLD_DB",
+>     characters = "YOUR_CHAR_DB",
+>     auth = "YOUR_AUTH_DB"
+> },
+> ```
 
 ### 1. Copy Files
 
@@ -66,19 +102,63 @@ auth       → acore_auth
 
 #### Changing Database Settings
 
-If you use custom database names, edit: `Server/Core/GameMasterUI_Config.lua`
+Edit `Server/Core/GameMasterUI_Config.lua` to customize database names.
 
-**Example - Custom Database Names:**
+**Step-by-Step: Setting Custom Database Names**
 
+1. Open `Server/Core/GameMasterUI_Config.lua`
+2. Find the `database.names` section (around line 114)
+3. Replace `defaultDatabaseNames` with your custom names:
+
+---
+
+**Example A: Keep Auto-Detection (Default - No Changes Needed)**
 ```lua
-database = {
-    names = {
-        world = "myserver_world", -- Your world database name
-        characters = "myserver_chars", -- Your characters database name
-        auth = "myserver_accounts"      -- Your auth database name
-    },
-    -- ... other settings ...
-}
+names = defaultDatabaseNames,  -- Auto-detects TrinityCore or AzerothCore
+```
+
+---
+
+**Example B: TrinityCore with Custom Prefix**
+```lua
+names = {
+    world = "myserver_world",
+    characters = "myserver_characters",
+    auth = "myserver_auth"
+},
+```
+
+---
+
+**Example C: AzerothCore with Custom Prefix**
+```lua
+names = {
+    world = "ac_world",
+    characters = "ac_characters",
+    auth = "ac_auth"
+},
+```
+
+---
+
+**Example D: Production Server Setup**
+```lua
+names = {
+    world = "prod_world_335",
+    characters = "prod_chars",
+    auth = "prod_auth"
+},
+```
+
+---
+
+**Example E: Multi-Realm Setup**
+```lua
+names = {
+    world = "realm1_world",
+    characters = "realm1_characters",
+    auth = "shared_auth"  -- Can share auth across realms
+},
 ```
 
 #### Database Configuration Options
@@ -211,18 +291,34 @@ Change `githubRepo = "yourusername/yourrepo"` to your actual repository.
 
 ```
 GameMasterUI/
-├── GameMasterUIServer.lua      # Main server entry point
-├── Client/                     # Client-side UI files
-│   ├── 00_Core/               # Core functionality
-│   ├── 01_UI/                 # UI framework
-│   ├── 02_Cards/              # Card system for displaying entities
-│   ├── 03_Systems/            # Model viewer and data systems
-│   ├── 04_Menus/              # Context menu system
-│   └── GMClient_09_Init.lua   # Client initialization
-└── Server/                     # Server-side logic
-    ├── Core/                  # Core server functionality
-    ├── Database/              # Database queries
-    └── Handlers/              # AIO message handlers
+├── README.md                          # This file
+├── CHANGELOG.md                       # Version history
+├── gameMasterUtils.lua                # Shared utilities
+├── Client/                            # Client-side (100+ files)
+│   ├── 00_Core/                       # Config, state machine, utils
+│   ├── 01_UI/                         # Main frame, layout
+│   ├── 02_Cards/                      # Card display system
+│   ├── 03_Systems/                    # Object editor, templates, inventory
+│   ├── 04_Menus/                      # Context menus (80+ files)
+│   └── GMClient_09_Init.lua           # Client initialization
+├── Server/                            # Server-side (140+ files)
+│   ├── GameMasterUIServer.lua         # Main entry point
+│   ├── Core/                          # Config, constants, helpers
+│   │   ├── GameMasterUI_Config.lua    # ⭐ Main configuration file
+│   │   ├── GameMasterUI_Constants.lua # WoW 3.3.5 constants
+│   │   ├── GameMasterUI_DatabaseHelper.lua
+│   │   └── GameMasterUI_Utils.lua
+│   ├── Database/                      # Query templates (per-core)
+│   │   └── GameMasterUI_Database.lua  # TrinityCore & AzerothCore queries
+│   ├── Data/                          # Static data (enchants, factions)
+│   ├── Handlers/                      # AIO message handlers
+│   │   ├── Entity/                    # NPC, Item, Object spawning
+│   │   ├── Player/                    # Character, spells, inventory, mail
+│   │   ├── Template/                  # Live template editing
+│   │   ├── Teleport/                  # Teleport system
+│   │   └── GMPowers/                  # GM power handlers
+│   └── Utils/                         # Cache, fuzzy matcher, async utils
+└── docs/                              # Documentation (30+ guides)
 ```
 
 ## Troubleshooting

@@ -49,10 +49,15 @@ function Dialog.createDialog(playerName, castType)
         width = 700,
         height = 600, -- Increased height for pagination controls
         closeOnEscape = true,
+        onClose = function()
+            -- Notify state machine when modal closes
+            SpellSelection.closeModal()
+        end,
         buttons = {
             {
                 text = "Cancel",
                 callback = function()
+                    -- State machine will be notified via onClose
                     if state.spellSelectionModal then
                         state.spellSelectionModal:Hide()
                     end

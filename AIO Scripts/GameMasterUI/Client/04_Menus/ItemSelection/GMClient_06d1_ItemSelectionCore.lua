@@ -63,6 +63,36 @@ function ItemSelection.openModal(playerName, mode)
         return false
     end
 
+    -- If already in ITEM_SELECTION state, handle it gracefully
+    if StateMachine.getCurrentState() == StateMachine.STATES.ITEM_SELECTION then
+        local modal = ItemSelection.state.itemSelectionModal
+        if modal and modal:IsVisible() then
+            -- Modal already open, bring to front
+            modal:Raise()
+            return true
+        else
+            -- State desync: state says open but modal not visible
+            -- Force close without triggering callbacks to clean up state
+            if modal then
+                -- Temporarily disable onClose to prevent recursive calls
+                if modal.overlay then
+                    modal.overlay:SetScript("OnMouseDown", nil)
+                end
+                modal:Hide()
+            end
+            -- Clear state references
+            ItemSelection.state.itemSelectionModal = nil
+            ItemSelection.state.selectedItems = {}
+            -- Close state machine state
+            StateMachine.closeModal()
+            -- Don't continue - let user click again
+            if CreateStyledToast then
+                CreateStyledToast("Modal closed - please try again", 2, 0.5)
+            end
+            return false
+        end
+    end
+
     -- If can't open modal through state machine, try fallback
     if not StateMachine.canOpenModal() then
         if _G.GM_DEBUG then
@@ -144,7 +174,7 @@ end
 -- Update modal with item data
 function ItemSelection.updateModalItems(items)
     -- Finish loading operation
-    if StateMachine and StateMachine.isLoading then
+    if StateMachine and StateMachine.isLoading() then
         StateMachine.finishLoading("itemRequest")
     end
 

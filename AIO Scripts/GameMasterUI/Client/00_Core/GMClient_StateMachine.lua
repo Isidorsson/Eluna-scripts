@@ -476,18 +476,23 @@ function StateMachine.transitionTo(newState, context)
     if not StateMachine.transitions[currentState] or not StateMachine.transitions[currentState][newState] then
         local errorMsg = string.format("Invalid state transition from %s to %s", currentState, newState)
 
-        if _G.GM_DEBUG then
-            print("[StateMachine] " .. errorMsg)
-            -- Print available transitions from current state for debugging
-            if StateMachine.transitions[currentState] then
-                local available = {}
-                for state, _ in pairs(StateMachine.transitions[currentState]) do
-                    table.insert(available, state)
-                end
-                print("[StateMachine] Available transitions: " .. table.concat(available, ", "))
-            else
-                print("[StateMachine] No valid transitions defined for state: " .. currentState)
+        -- ALWAYS print error details to console (not just in debug mode)
+        print("[StateMachine ERROR] " .. errorMsg)
+
+        -- Print available transitions from current state for debugging
+        if StateMachine.transitions[currentState] then
+            local available = {}
+            for state, _ in pairs(StateMachine.transitions[currentState]) do
+                table.insert(available, state)
             end
+            print("[StateMachine] Available transitions from " .. currentState .. ": " .. table.concat(available, ", "))
+        else
+            print("[StateMachine] No valid transitions defined for state: " .. currentState)
+        end
+
+        -- Print context if provided
+        if context then
+            print("[StateMachine] Context: activeModal=" .. tostring(context.activeModal) .. ", targetPlayer=" .. tostring(context.targetPlayer))
         end
 
         -- Record failed transition for debugging
@@ -499,13 +504,10 @@ function StateMachine.transitionTo(newState, context)
             context = context
         })
 
-        -- Notify user of critical state machine errors (not in debug mode to avoid spam)
-        if not _G.GM_DEBUG then
-            -- Only show user-facing error for critical transitions
-            if newState == StateMachine.STATES.IDLE or currentState == StateMachine.STATES.ERROR then
-                CreateStyledToast("System state error - check console", 3, 0.5)
-            end
-        end
+        -- Show informative toast with actual state names
+        local shortCurrentState = currentState:gsub("_", " ")
+        local shortNewState = newState:gsub("_", " ")
+        CreateStyledToast(string.format("Cannot open %s while in %s state", shortNewState, shortCurrentState), 4, 0.5)
 
         return false, errorMsg
     end
@@ -515,9 +517,8 @@ function StateMachine.transitionTo(newState, context)
         local success, errorMsg = pcall(StateMachine.onExit[currentState])
         if not success then
             local exitError = string.format("Exit callback failed for state %s: %s", currentState, errorMsg or "unknown error")
-            if _G.GM_DEBUG then
-                print("[StateMachine] " .. exitError)
-            end
+            -- ALWAYS print exit errors
+            print("[StateMachine ERROR] " .. exitError)
             -- Continue with transition but log the error
             StateMachine.context.lastExitError = exitError
         end
@@ -553,9 +554,8 @@ function StateMachine.transitionTo(newState, context)
         local success, errorMsg = pcall(StateMachine.onEnter[newState])
         if not success then
             local enterError = string.format("Enter callback failed for state %s: %s", newState, errorMsg or "unknown error")
-            if _G.GM_DEBUG then
-                print("[StateMachine] " .. enterError)
-            end
+            -- ALWAYS print enter errors
+            print("[StateMachine ERROR] " .. enterError)
 
             -- Critical failure handling - attempt recovery
             StateMachine.context.lastEnterError = enterError
@@ -563,9 +563,7 @@ function StateMachine.transitionTo(newState, context)
 
             -- If entering a modal state failed, try to fall back to IDLE
             if StateMachine.isModalOpen() and StateMachine.context.recoveryAttempts < 3 then
-                if _G.GM_DEBUG then
-                    print("[StateMachine] Modal state entry failed, attempting recovery to IDLE")
-                end
+                print("[StateMachine] Modal state entry failed, attempting recovery to IDLE")
                 -- Recursive call with recovery (clear context to avoid infinite loop)
                 local originalRecoveryAttempts = StateMachine.context.recoveryAttempts
                 StateMachine.context.recoveryAttempts = 0
@@ -632,6 +630,11 @@ function StateMachine.openDialog(dialogType)
 end
 
 function StateMachine.closeModal()
+    -- Don't try to close if already in IDLE or transitioning
+    if StateMachine.currentState == StateMachine.STATES.IDLE then
+        return true -- Already closed
+    end
+
     -- Clear persisted state when returning to IDLE
     StateMachine.clearPersistedState()
     return StateMachine.transitionTo(StateMachine.STATES.IDLE)
@@ -799,9 +802,16 @@ function StateMachine.getStateHistory()
 end
 
 function StateMachine.printStateHistory()
+    print("=== State Machine History (last " .. #StateMachine.stateHistory .. " transitions) ===")
     for i, entry in ipairs(StateMachine.stateHistory) do
-        print(string.format("[%d] %s -> %s (%.2f)", i, entry.from, entry.to, entry.timestamp))
+        local timeStr = string.format("%.2fs", entry.timestamp)
+        if entry.error then
+            print(string.format("[%d] %s -> %s (%s) ERROR: %s", i, entry.from, entry.to, timeStr, entry.error))
+        else
+            print(string.format("[%d] %s -> %s (%s)", i, entry.from, entry.to, timeStr))
+        end
     end
+    print("=== Current State: " .. StateMachine.currentState .. " ===")
 end
 
 function StateMachine.getContext()

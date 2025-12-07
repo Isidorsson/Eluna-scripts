@@ -214,6 +214,8 @@ GMConfig.TAB_TYPES = {
         CATEGORY = 50,
     },
     PLAYER = 6,
+    GM_POWERS = 7,
+    REPUTATION = 8,
 }
 
 -- Model configuration

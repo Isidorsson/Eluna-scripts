@@ -646,7 +646,7 @@ local queries = {
 
 			return string.format(
 				[[
-                SELECT entry, name, description, displayid, InventoryType, Quality, ItemLevel, class, subclass
+                SELECT entry, name, COALESCE(description, ''), displayid, Quality, InventoryType, ItemLevel, class, subclass
                 FROM item_template
                 %s
                 ORDER BY entry %s
@@ -667,13 +667,51 @@ local queries = {
 
 			return string.format(
 				[[
-                SELECT entry, name, description, displayid, InventoryType, Quality, ItemLevel, class, subclass
+                SELECT entry, name, COALESCE(description, ''), displayid, Quality, InventoryType, ItemLevel, class, subclass
                 FROM item_template
                 %s
                 ORDER BY entry %s
                 LIMIT %d OFFSET %d;
             ]],
 				string.format(whereClause, query, query),
+				sortOrder,
+				pageSize,
+				offset * pageSize
+			)
+		end,
+
+		spellVisualCount = function()
+			return [[
+                SELECT COUNT(*)
+                FROM spellvisualeffectname;
+            ]]
+		end,
+
+		spellVisualData = function(sortOrder, pageSize, offset)
+			return string.format(
+				[[
+            SELECT ID, Name, FilePath, AreaEffectSize, Scale, MinAllowedScale, MaxAllowedScale
+            FROM spellvisualeffectname
+            ORDER BY ID %s
+            LIMIT %d OFFSET %d;
+            ]],
+				sortOrder,
+				pageSize,
+				offset
+			)
+		end,
+
+		searchSpellVisualData = function(query, sortOrder, pageSize, offset)
+			return string.format(
+				[[
+            SELECT ID, Name, FilePath, AreaEffectSize, Scale, MinAllowedScale, MaxAllowedScale
+            FROM spellvisualeffectname
+            WHERE Name LIKE '%%%s%%' OR ID LIKE '%%%s%%'
+            ORDER BY ID %s
+            LIMIT %d OFFSET %d;
+            ]],
+				query,
+				query,
 				sortOrder,
 				pageSize,
 				offset * pageSize

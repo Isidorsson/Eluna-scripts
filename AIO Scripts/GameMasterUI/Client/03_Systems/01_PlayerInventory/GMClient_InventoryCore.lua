@@ -688,6 +688,31 @@ function PlayerInventory.showInventoryModal(playerName)
     -- Check state machine availability and use it for coordination
     local StateMachine = _G.GMStateMachine
     if StateMachine then
+        -- If already in INVENTORY state, handle it gracefully
+        if StateMachine.getCurrentState() == StateMachine.STATES.INVENTORY then
+            local modal = PlayerInventory.currentModal
+            if modal and modal:IsVisible() then
+                -- Modal already open, bring to front
+                modal:Raise()
+                return
+            else
+                -- State desync: state says open but modal not visible
+                -- Force close without triggering callbacks to clean up state
+                if modal then
+                    modal:Hide()
+                end
+                -- Clear state reference
+                PlayerInventory.currentModal = nil
+                -- Close state machine state
+                StateMachine.closeModal()
+                -- Don't continue - let user click again
+                if CreateStyledToast then
+                    CreateStyledToast("Modal closed - please try again", 2, 0.5)
+                end
+                return
+            end
+        end
+
         if not StateMachine.canOpenModal() then
             if GMConfig.config.debug then
                 print("[PlayerInventory] Cannot open through state machine - system busy")

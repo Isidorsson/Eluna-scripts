@@ -68,6 +68,9 @@ local BanHandlers = require("GameMasterUI.Server.Handlers.Player.GameMasterUI_Ba
 -- Load GM Powers handler module
 local GMPowersHandlers = require("GameMasterUI.Server.Handlers.GMPowers.GameMasterUI_GMPowersHandlers")
 
+-- Load Reputation handler module
+local ReputationHandlers = require("GameMasterUI.Server.Handlers.Player.GameMasterUI_ReputationHandlers")
+
 -- Load Teleport handler module
 local TeleportHandlers = require("GameMasterUI.Server.Handlers.Teleport.GameMasterUI_TeleportHandlers")
 
@@ -91,6 +94,9 @@ BanHandlers.RegisterHandlers(GameMasterSystem, Config, Utils, Database, Database
 
 -- Register GM Powers handlers
 GMPowersHandlers.RegisterHandlers(GameMasterSystem, Config, Utils, Database, DatabaseHelper)
+
+-- Register Reputation handlers
+ReputationHandlers.RegisterHandlers(GameMasterSystem, Config, Utils, Database, DatabaseHelper)
 
 -- Register Teleport handlers
 TeleportHandlers.RegisterHandlers(GameMasterSystem, Config, Utils, Database, DatabaseHelper, DatabaseErrorHelper)

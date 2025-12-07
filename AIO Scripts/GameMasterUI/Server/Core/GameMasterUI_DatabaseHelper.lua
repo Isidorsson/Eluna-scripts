@@ -180,9 +180,12 @@ function DatabaseHelper.GetQualifiedTableName(tableName, databaseType)
         return tableName
     end
 
-    -- For standard TrinityCore setup (databases named "world", "characters", "auth"),
-    -- no database qualifier is needed as tables are in the same database
-    local standardNames = { world = true, characters = true, auth = true }
+    -- For standard TrinityCore/AzerothCore setup, no database qualifier is needed
+    -- as tables are in the same database context
+    local standardNames = {
+        world = true, characters = true, auth = true,
+        acore_world = true, acore_characters = true, acore_auth = true
+    }
     if standardNames[databaseName] then
         return tableName
     end
@@ -250,11 +253,25 @@ function DatabaseHelper.SafeQuery(query, databaseType)
     local success, result = pcall(function()
         return executeDatabaseFunction(databaseType, true, false, query)
     end)
-    
+
     if not success then
-        log(LOG_LEVEL.ERROR, "Database query failed: %s", tostring(result))
+        local errorMsg = tostring(result)
+        local coreName = Config.core or "Unknown"
+
+        -- Add helpful context about the error
+        log(LOG_LEVEL.ERROR, "Database query failed on %s: %s", coreName, errorMsg)
         log(LOG_LEVEL.DEBUG, "Failed query: %s", query)
-        return nil, tostring(result)
+
+        -- Provide specific guidance for common errors
+        if errorMsg:find("Unknown column") and coreName == "AzerothCore" then
+            log(LOG_LEVEL.WARN, "Possible AzerothCore compatibility issue - table structure may differ from TrinityCore")
+        elseif errorMsg:find("doesn't exist") then
+            log(LOG_LEVEL.WARN, "Table not found - check if required tables exist in %s database", databaseType)
+        elseif errorMsg:find("syntax error") then
+            log(LOG_LEVEL.WARN, "SQL syntax error - query may be incompatible with %s", coreName)
+        end
+
+        return nil, errorMsg
     end
     
     return result, nil
@@ -474,9 +491,17 @@ function DatabaseHelper.BuildSafeQuery(query, requiredTables, databaseType)
         end
     end
 
+    -- Sort tables by length (longest first) to avoid substring replacement issues
+    -- e.g., replace "creature_template_model" before "creature_template"
+    local sortedTables = {}
+    for _, tableName in ipairs(requiredTables) do
+        table.insert(sortedTables, tableName)
+    end
+    table.sort(sortedTables, function(a, b) return #a > #b end)
+
     -- Replace table names with qualified names
     local modifiedQuery = query
-    for _, tableName in ipairs(requiredTables) do
+    for _, tableName in ipairs(sortedTables) do
         local qualifiedName = DatabaseHelper.GetQualifiedTableName(tableName, databaseType)
         -- Only replace if we have a prefix
         if qualifiedName ~= tableName then
@@ -542,9 +567,17 @@ function DatabaseHelper.BuildSafeQueryAsync(query, requiredTables, callback, dat
         end
     end
 
+    -- Sort tables by length (longest first) to avoid substring replacement issues
+    -- e.g., replace "creature_template_model" before "creature_template"
+    local sortedTables = {}
+    for _, tableName in ipairs(requiredTables) do
+        table.insert(sortedTables, tableName)
+    end
+    table.sort(sortedTables, function(a, b) return #a > #b end)
+
     -- Replace table names with qualified names
     local modifiedQuery = query
-    for _, tableName in ipairs(requiredTables) do
+    for _, tableName in ipairs(sortedTables) do
         local qualifiedName = DatabaseHelper.GetQualifiedTableName(tableName, databaseType)
         -- Only replace if we have a prefix
         if qualifiedName ~= tableName then
@@ -589,21 +622,41 @@ function DatabaseHelper.CheckRequiredTables()
         end
     end
     
-    -- Check optional tables
+    -- Check optional tables and categorize DBC tables
+    local missingDBC = {}
+    local missingOther = {}
+    local dbcTables = {
+        gameobjectdisplayinfo = true,
+        spellvisual = true,
+        spellvisualkit = true,
+        spellvisualeffectname = true
+    }
+
     for _, tableName in ipairs(Config.database.optionalTables) do
         if not DatabaseHelper.TableExists(tableName, "world") then
             table.insert(missingOptional, tableName)
+            if dbcTables[tableName] then
+                table.insert(missingDBC, tableName)
+            else
+                table.insert(missingOther, tableName)
+            end
         end
     end
-    
+
     -- Report missing tables
     if #missingRequired > 0 then
         log(LOG_LEVEL.WARN, "Missing required tables: %s", table.concat(missingRequired, ", "))
         log(LOG_LEVEL.WARN, "Some features may not work correctly!")
     end
-    
-    if #missingOptional > 0 then
-        log(LOG_LEVEL.DEBUG, "Missing optional tables: %s", table.concat(missingOptional, ", "))
+
+    if #missingDBC > 0 then
+        log(LOG_LEVEL.INFO, "Missing DBC tables: %s", table.concat(missingDBC, ", "))
+        log(LOG_LEVEL.INFO, "Visual data features will be limited. These tables require manual DBC import.")
+        log(LOG_LEVEL.INFO, "To enable: Use DBC import tools (WoW Spell Editor, node-dbc-reader, or AzerothCore utilities)")
+    end
+
+    if #missingOther > 0 then
+        log(LOG_LEVEL.DEBUG, "Missing optional tables: %s", table.concat(missingOther, ", "))
         log(LOG_LEVEL.DEBUG, "Some features will work with reduced functionality.")
     end
     

@@ -34,10 +34,15 @@ function ItemModal.createDialog(playerName)
         width = 860,  -- Increased to accommodate 10 columns
         height = 600,
         closeOnEscape = true,
+        onClose = function()
+            -- Notify state machine when modal closes
+            ItemSelection.closeModal()
+        end,
         buttons = {
             {
                 text = "Cancel",
                 callback = function()
+                    -- State machine will be notified via onClose
                     if ItemSelection.state.itemSelectionModal then
                         ItemSelection.state.itemSelectionModal:Hide()
                     end

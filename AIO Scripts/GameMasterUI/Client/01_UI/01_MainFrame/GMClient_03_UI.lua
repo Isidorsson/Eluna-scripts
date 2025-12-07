@@ -673,6 +673,14 @@ function GMUI.buildDropdownItems()
                 GMUI.switchToTab(6)
             end
         },
+        -- Reputation
+        {
+            text = "Reputation",
+            value = "reputation",
+            func = function()
+                GMUI.switchToTab(8)
+            end
+        },
         -- Spells submenu
         {
             text = "Spells",
@@ -996,8 +1004,8 @@ end
 
 -- Update pagination button states
 function GMUI.updatePaginationButtons()
-    -- Skip pagination updates for GM Powers tab
-    if GMData.activeTab == 7 then
+    -- Skip pagination updates for GM Powers and Reputation tabs
+    if GMData.activeTab == 7 or GMData.activeTab == 8 then
         if GMData.frames.paginationContainer then
             GMData.frames.paginationContainer:Hide()
         end
@@ -1193,7 +1201,38 @@ function GMUI.updateContentForActiveTab()
         
         return -- Exit early - GM Powers doesn't need data
     end
-    
+
+    -- Special handling for Reputation tab - BEFORE data check since it doesn't need data
+    if GMData.activeTab == 8 and dataType == "reputation" then
+        -- Create or show Reputation panel
+        if not GMReputation or not GMReputation.frames or not GMReputation.frames.panel then
+            -- Load Reputation module if not loaded
+            if GMReputation and GMReputation.CreatePanel then
+                GMReputation.CreatePanel(activeFrame)
+            else
+                GMUI.showEmptyState(activeFrame, "Reputation module not loaded")
+                return
+            end
+        end
+
+        -- Show the Reputation panel
+        if GMReputation.frames.panel then
+            GMReputation.frames.panel:SetParent(activeFrame)
+            GMReputation.frames.panel:Show()
+
+            -- Request online players from server (faction data is embedded in client)
+            AIO.Handle("GameMasterSystem", "getOnlinePlayersForReputation")
+        end
+
+        -- Hide pagination controls for Reputation tab (no data pagination needed)
+        if GMData.frames.prevButton then GMData.frames.prevButton:Hide() end
+        if GMData.frames.nextButton then GMData.frames.nextButton:Hide() end
+        if GMData.frames.refreshButton then GMData.frames.refreshButton:Hide() end
+        if GMData.frames.paginationInfo then GMData.frames.paginationInfo:Hide() end
+
+        return -- Exit early - Reputation doesn't need data
+    end
+
     -- Show pagination controls for regular data tabs
     if GMData.frames.prevButton then GMData.frames.prevButton:Show() end
     if GMData.frames.nextButton then GMData.frames.nextButton:Show() end
@@ -1357,6 +1396,7 @@ function GMUI.getDataTypeForTab(tabIndex)
         [5] = "items",          -- Items (All)
         [6] = "players",        -- Player Management
         [7] = "gmpowers",       -- GM Powers
+        [8] = "reputation",     -- Reputation
     }
     
     -- Check if it's a subcategory tab
@@ -1432,12 +1472,13 @@ function GMUI.getCategoryNameForTab(tabIndex)
     -- Main categories
     local mainCategories = {
         [1] = "Creatures",
-        [2] = "Objects", 
+        [2] = "Objects",
         [3] = "Spells",
         [4] = "Spell Visuals",
         [5] = "Items",
         [6] = "Player Management",
-        [7] = "GM Powers"
+        [7] = "GM Powers",
+        [8] = "Reputation"
     }
     
     if mainCategories[tabIndex] then
@@ -1538,7 +1579,7 @@ function GMUI.switchToTab(tabIndex)
             GMData.frames.sortDropdown:Show()
             GMData.frames.sortLabel:Show()
         else
-            -- Hide for GM Powers (7), Player Management (6), and other non-list tabs
+            -- Hide for GM Powers (7), Reputation (8), Player Management (6), and other non-list tabs
             GMData.frames.sortDropdown:Hide()
             GMData.frames.sortLabel:Hide()
         end
@@ -1559,9 +1600,9 @@ end
 
 -- Request data for specific tab
 function GMUI.requestDataForTab(tabIndex)
-    -- Special case for GM Powers - trigger content update directly
-    if tabIndex == 7 then
-        -- GM Powers doesn't need data from server, just update the content
+    -- Special case for GM Powers and Reputation - trigger content update directly
+    if tabIndex == 7 or tabIndex == 8 then
+        -- These tabs don't need data from server, just update the content
         GMUI.updateContentForActiveTab()
         return
     end

@@ -221,7 +221,6 @@ function Actions.confirmGiveItems()
     
     -- Show success message
     print(string.format("Gave %d items to %s", quantity, state.targetPlayerName))
-    
-    -- Close modal
-    modal:Hide()
+
+    -- Modal will be closed by state machine transition to IDLE
 end

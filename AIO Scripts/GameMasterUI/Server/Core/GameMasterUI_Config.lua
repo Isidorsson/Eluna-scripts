@@ -114,8 +114,11 @@ local config = {
         names = defaultDatabaseNames,
 
         -- Optional tables that won't cause errors if missing
+        -- DBC-imported tables: gameobjectdisplayinfo, spellvisual, spellvisualkit, spellvisualeffectname
         optionalTables = {
             "gameobjectdisplayinfo",
+            "spellvisual",
+            "spellvisualkit",
             "spellvisualeffectname",
             "creature_template_model",
             "creature_equip_template",
